@@ -15,10 +15,18 @@ dist/
 build/
 target/
 coverage/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.eggs/
+*.egg-info/
+.coverage
 .vite/
 .cache/
 __pycache__/
 *.py[cod]
+*.pid
+npm-debug.log*
 
 # Runtime files
 *.log
@@ -35,12 +43,16 @@ skill/
 skills/
 **/skill/
 **/skills/
+CLAUDE.local.md
+**/CLAUDE.local.md
 trajectory/
 trajectories/
+*_traces*/
 **/*trajectory*
 **/*trace*
 qa/
 QA/
+output/
 **/*qa-report*
 **/*playwright*
 .playwright-cli/
@@ -49,10 +61,10 @@ QA/
 .claude/
 **/.claude/
 claude-*.jsonl
+**/claude-*.jsonl
 
 # OS/editor files
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
-

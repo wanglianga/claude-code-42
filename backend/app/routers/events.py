@@ -19,14 +19,6 @@ router = APIRouter(prefix="/events", tags=["事件协同"])
 
 # ---------------- 公共工具 ----------------
 
-def add_participant(db: Session, event_id: int, user_id: int, role: str):
-    exists = db.query(EventParticipant).filter(
-        EventParticipant.event_id == event_id,
-        EventParticipant.user_id == user_id).first()
-    if not exists:
-        db.add(EventParticipant(event_id=event_id, user_id=user_id, participant_role=role))
-
-
 def add_update(db: Session, event_id: int, actor_id: int, action: str, content: str = ""):
     db.add(EventUpdate(event_id=event_id, actor_id=actor_id, action=action, content=content))
 
@@ -42,13 +34,17 @@ def create_event_internal(db: Session, creator: User, title: str, event_type: st
     db.add(ev)
     db.flush()
 
-    add_participant(db, ev.id, creator.id, creator.role)
+    # 先汇总再落库（去重）：创建者/主人可能同时属于某个职能角色，
+    # 逐个查询插入在 autoflush=False 下会漏掉未落库的行，导致唯一约束冲突
+    participants = {creator.id: creator.role}
     if owner_id:
-        add_participant(db, ev.id, owner_id, "owner")
-    # 自动串联园区管理、合作医院、客服
-    for role in ("manager", "hospital", "service"):
+        participants.setdefault(owner_id, "owner")
+    # 自动串联巡场、园区管理、合作医院、客服（无论从哪个入口创建，五方角色必须齐全）
+    for role in ("patrol", "manager", "hospital", "service"):
         for u in db.query(User).filter(User.role == role).all():
-            add_participant(db, ev.id, u.id, role)
+            participants.setdefault(u.id, role)
+    for uid, role in participants.items():
+        db.add(EventParticipant(event_id=ev.id, user_id=uid, participant_role=role))
 
     add_update(db, ev.id, creator.id, "创建事件",
                "事件创建，已通知巡场、园区管理、宠物主人、合作医院与客服协同处置")
