@@ -1,0 +1,15 @@
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; padding: 0; }
+body {
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+  background: #f5f7fa;
+}
+
+.page-card { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.page-title { font-size: 18px; font-weight: 600; margin: 0 0 16px; color: #303133; }
+.toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.stat-card { background: #fff; border-radius: 8px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.stat-card .num { font-size: 28px; font-weight: 700; color: #409eff; margin-top: 6px; }
+.stat-card .label { color: #909399; font-size: 13px; }
+.muted { color: #909399; font-size: 12px; }

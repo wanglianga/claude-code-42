@@ -1,0 +1,58 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+*secret*
+*token*
+*credential*
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+target/
+coverage/
+.vite/
+.cache/
+__pycache__/
+*.py[cod]
+
+# Runtime files
+*.log
+*.tmp
+*.temp
+*.db
+*.sqlite
+*.sqlite3
+
+# Local memory, skills, trajectories, and QA artifacts
+memory/
+**/memory/
+skill/
+skills/
+**/skill/
+**/skills/
+trajectory/
+trajectories/
+**/*trajectory*
+**/*trace*
+qa/
+QA/
+**/*qa-report*
+**/*playwright*
+.playwright-cli/
+
+# Claude Code local state
+.claude/
+**/.claude/
+claude-*.jsonl
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
