@@ -19,6 +19,14 @@ CHECK_ITEMS = {
     "identity_ok": "主人身份一致",
 }
 
+# 核验不通过时的异常原因文案（与通过项区分，避免误导处置人员）
+FAIL_LABELS = {
+    "vaccine_ok": "疫苗过期/核验未通过",
+    "license_ok": "犬证无效",
+    "leash_ok": "牵引绳不合规",
+    "identity_ok": "主人身份不符",
+}
+
 
 class EntryCheckIn(BaseModel):
     reservation_id: int
@@ -72,7 +80,7 @@ def create_check(data: EntryCheckIn, db: Session = Depends(get_db),
         raise HTTPException(400, "该预约已完成核验，请勿重复提交")
 
     passed = all([data.vaccine_ok, data.license_ok, data.leash_ok, data.identity_ok])
-    fails = [label for field, label in CHECK_ITEMS.items() if not getattr(data, field)]
+    fails = [FAIL_LABELS[field] for field in CHECK_ITEMS if not getattr(data, field)]
 
     if passed:
         # 通过核验，但受活动资格限制的宠物不能进入自由活动区

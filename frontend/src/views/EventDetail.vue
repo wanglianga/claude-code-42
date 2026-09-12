@@ -168,7 +168,8 @@
                       <el-tag :type="{ pending: 'danger', in_progress: 'warning', done: 'success' }[row.status]" size="small">
                         {{ row.status_label }}
                       </el-tag>
-                      <el-button v-if="isManager && row.status !== 'done'" link type="primary" size="small"
+                      <el-button v-if="isManager && row.status !== 'done' && detail.event.status !== 'closed'"
+                                 link type="primary" size="small"
                                  @click="advanceRectification(row)">推进</el-button>
                     </template>
                   </el-table-column>

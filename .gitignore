@@ -60,6 +60,7 @@ output/
 # Claude Code local state
 .claude/
 **/.claude/
+CLAUDE.md
 claude-*.jsonl
 **/claude-*.jsonl
 

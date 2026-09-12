@@ -333,6 +333,8 @@ class RectificationIn(BaseModel):
 def add_rectification(event_id: int, data: RectificationIn, db: Session = Depends(get_db),
                       user: User = Depends(require_roles("manager", "admin"))):
     ev = get_event_or_404(db, event_id)
+    if ev.status == "closed":
+        raise HTTPException(400, "事件已关闭，无法再登记整改")
     r = FacilityRectification(event_id=event_id, zone_id=data.zone_id,
                               issue=data.issue, action=data.action)
     db.add(r)
@@ -354,6 +356,9 @@ def update_rectification(rect_id: int, data: RectificationUpdate, db: Session = 
     r = db.get(FacilityRectification, rect_id)
     if not r:
         raise HTTPException(404, "整改记录不存在")
+    ev = db.get(Event, r.event_id)
+    if ev and ev.status == "closed":
+        raise HTTPException(400, "事件已关闭，整改状态不可再变更")
     if data.status not in ("pending", "in_progress", "done"):
         raise HTTPException(400, "状态不合法")
     r.status = data.status

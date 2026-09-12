@@ -90,10 +90,10 @@ const submitting = ref(false)
 const current = ref(null)
 
 const checkItems = [
-  { field: 'vaccine_ok', label: '疫苗有效' },
-  { field: 'license_ok', label: '犬证有效' },
-  { field: 'leash_ok', label: '牵引绳合规' },
-  { field: 'identity_ok', label: '主人身份一致' },
+  { field: 'vaccine_ok', label: '疫苗有效', failLabel: '疫苗过期/核验未通过' },
+  { field: 'license_ok', label: '犬证有效', failLabel: '犬证无效' },
+  { field: 'leash_ok', label: '牵引绳合规', failLabel: '牵引绳不合规' },
+  { field: 'identity_ok', label: '主人身份一致', failLabel: '主人身份不符' },
 ]
 const checkForm = reactive({
   vaccine_ok: true, license_ok: true, leash_ok: true, identity_ok: true,
@@ -103,7 +103,7 @@ const checkForm = reactive({
 const allPassed = computed(() =>
   checkForm.vaccine_ok && checkForm.license_ok && checkForm.leash_ok && checkForm.identity_ok)
 const failedLabels = computed(() =>
-  checkItems.filter((i) => !checkForm[i.field]).map((i) => i.label).join('、'))
+  checkItems.filter((i) => !checkForm[i.field]).map((i) => i.failLabel).join('、'))
 
 async function load() {
   loading.value = true
