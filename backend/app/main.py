@@ -1,9 +1,12 @@
+import os
 import time
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
+from .config import UPLOAD_DIR
 from .database import Base, SessionLocal, engine
 from .routers import (analytics, auth, blacklist, entry_checks, events,
                       incidents, pets, reservations, users, zones)
@@ -35,11 +38,15 @@ def startup():
         raise RuntimeError(f"数据库连接失败: {last_err}")
 
     Base.metadata.create_all(bind=engine)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     db = SessionLocal()
     try:
         seed_if_empty(db)
     finally:
         db.close()
+
+
+app.mount("/api/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 @app.get("/api/health")

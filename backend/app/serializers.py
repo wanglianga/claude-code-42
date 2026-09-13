@@ -27,6 +27,7 @@ RESTRICTION_TYPES = {
 COMPENSATION_STATUS = {"pending": "待赔付", "paid": "已赔付", "rejected": "已驳回"}
 RECTIFICATION_STATUS = {"pending": "待整改", "in_progress": "整改中", "done": "已完成"}
 ALLOWED_AREA = {"free_activity": "自由活动区", "leash_only": "仅限牵引区", "denied": "禁止入园"}
+SANCTION_LABELS = {"none": "不限制", "warning": "警告", "restricted": "限制入园", "banned": "永久拉黑"}
 RECORD_TYPES = {
     "event_closure": "事件关闭", "blacklist": "黑名单", "restriction": "活动资格",
     "rectification": "设施整改", "zone_change": "分区调整", "review_decision": "复盘决策",
@@ -86,6 +87,11 @@ def reservation_dict(r):
         "pet_id": r.pet_id, "pet_name": r.pet.name if r.pet else "",
         "pet_breed": r.pet.breed if r.pet else "",
         "owner_id": r.owner_id, "owner_name": r.owner.name if r.owner else "",
+        "owner_phone": r.owner.phone if r.owner else "",
+        # 预约绑定：犬只免疫状态、牵引规则、主人联系方式
+        "vaccine_status": r.pet.vaccine_status if r.pet else "",
+        "vaccine_label": VACCINE_LABELS.get(r.pet.vaccine_status, "") if r.pet else "",
+        "leash_required": r.pet.leash_required if r.pet else True,
         "zone_id": r.zone_id, "zone_name": r.zone.name if r.zone else "",
         "visit_date": r.visit_date.isoformat(),
         "time_slot": r.time_slot, "time_slot_label": TIME_SLOTS.get(r.time_slot, r.time_slot),
@@ -120,11 +126,14 @@ def incident_dict(i):
         "id": i.id, "code": i.code,
         "pet_id": i.pet_id, "pet_name": i.pet.name if i.pet else "",
         "pet_breed": i.pet.breed if i.pet else "",
+        "related_pet_id": i.related_pet_id,
+        "related_pet_name": i.related_pet.name if i.related_pet else "",
         "reporter_name": i.reporter.name if i.reporter else "",
         "zone_id": i.zone_id, "zone_name": i.zone.name if i.zone else "",
         "incident_type": i.incident_type,
         "incident_type_label": INCIDENT_TYPES.get(i.incident_type, i.incident_type),
         "severity": i.severity, "severity_label": SEVERITY_LABELS.get(i.severity, i.severity),
+        "location": i.location,
         "description": i.description,
         "has_injury": i.has_injury, "owner_cooperative": i.owner_cooperative,
         "occurred_at": i.occurred_at.strftime("%Y-%m-%d %H:%M") if i.occurred_at else "",
@@ -142,6 +151,7 @@ def event_dict(e, db=None):
         "zone_id": e.zone_id, "zone_name": e.zone.name if e.zone else "",
         "pet_id": e.pet_id, "pet_name": e.pet.name if e.pet else "",
         "owner_id": e.owner_id,
+        "location": e.location,
         "description": e.description,
         "created_at": e.created_at.strftime("%Y-%m-%d %H:%M") if e.created_at else "",
         "closed_at": e.closed_at.strftime("%Y-%m-%d %H:%M") if e.closed_at else None,

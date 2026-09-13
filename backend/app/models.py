@@ -102,6 +102,7 @@ class Event(Base):
     zone_id = Column(Integer, ForeignKey("zones.id"), nullable=True)
     pet_id = Column(Integer, ForeignKey("pets.id"), nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    location = Column(String(255), default="")  # 冲突位置
     description = Column(Text, default="")
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -117,18 +118,21 @@ class Incident(Base):
     id = Column(Integer, primary_key=True)
     code = Column(String(32), unique=True, nullable=False)
     pet_id = Column(Integer, ForeignKey("pets.id"), nullable=False)
+    related_pet_id = Column(Integer, ForeignKey("pets.id"), nullable=True)  # 冲突对方宠物
     reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     zone_id = Column(Integer, ForeignKey("zones.id"), nullable=False)
     # chasing/barking/toy_fight/bite/waste/equipment_damage/other
     incident_type = Column(String(32), nullable=False)
     severity = Column(String(16), nullable=False, default="low")  # low/medium/high/critical
+    location = Column(String(255), default="")  # 冲突位置
     description = Column(Text, default="")
     has_injury = Column(Boolean, default=False)
     owner_cooperative = Column(Boolean, default=True)
     occurred_at = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
-    pet = relationship("Pet")
+    pet = relationship("Pet", foreign_keys=[pet_id])
+    related_pet = relationship("Pet", foreign_keys=[related_pet_id])
     reporter = relationship("User")
     zone = relationship("Zone")
 
@@ -229,6 +233,52 @@ class FacilityRectification(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
     zone = relationship("Zone")
+
+
+class ConflictParty(Base):
+    """冲突双方档案：入园状态、牵引、陈述与责任认定结果。"""
+    __tablename__ = "conflict_parties"
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
+    pet_id = Column(Integer, ForeignKey("pets.id"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    entry_check_id = Column(Integer, ForeignKey("entry_checks.id"), nullable=True)  # 当日入园核验
+    leash_compliant = Column(Boolean, default=True)  # 冲突时是否拴绳
+    owner_statement = Column(Text, default="")  # 主人陈述
+    statement_at = Column(DateTime, nullable=True)
+    # 责任认定结果
+    responsibility_percent = Column(Integer, nullable=True)  # 责任比例 0-100
+    determination = Column(Text, default="")  # 认定说明
+    entry_sanction = Column(String(16), default="none")  # none/warning/restricted/banned
+    created_at = Column(DateTime, default=datetime.utcnow)
+    __table_args__ = (UniqueConstraint("event_id", "pet_id", name="uq_conflict_event_pet"),)
+    pet = relationship("Pet")
+    owner = relationship("User")
+    entry_check = relationship("EntryCheck")
+
+
+class ConflictPhoto(Base):
+    """巡场员现场照片。"""
+    __tablename__ = "conflict_photos"
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
+    filename = Column(String(255), nullable=False)
+    note = Column(String(255), default="")
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    uploader = relationship("User")
+
+
+class Settlement(Base):
+    """事件结算单：医疗费用 × 责任比例。"""
+    __tablename__ = "settlements"
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
+    medical_total = Column(Numeric(10, 2), default=0)
+    detail = Column(Text, default="")  # 结算明细
+    compensation_id = Column(Integer, ForeignKey("compensations.id"), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class OperationRecord(Base):

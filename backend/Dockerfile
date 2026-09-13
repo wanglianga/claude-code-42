@@ -16,7 +16,9 @@ COPY --from=builder /opt/venv /opt/venv
 COPY app ./app
 
 # 非 root 运行
-RUN useradd --create-home --uid 10001 appuser && chown -R appuser:appuser /app
+RUN useradd --create-home --uid 10001 appuser \
+    && mkdir -p /data/uploads \
+    && chown -R appuser:appuser /app /data/uploads
 USER appuser
 
 EXPOSE 8000

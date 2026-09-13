@@ -6,6 +6,7 @@ DATABASE_URL = os.getenv(
 )
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "720"))
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/data/uploads")
 
 # 入园时段定义
 TIME_SLOTS = {

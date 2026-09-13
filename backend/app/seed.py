@@ -2,9 +2,9 @@
 from datetime import date, datetime, timedelta
 
 from .models import (
-    ActivityRestriction, BlacklistEntry, Compensation, Event, EventParticipant,
-    EventUpdate, FacilityRectification, Incident, MedicalRecord, OperationRecord,
-    Pet, Reservation, User, Zone,
+    ActivityRestriction, BlacklistEntry, Compensation, ConflictParty, Event,
+    EventParticipant, EventUpdate, FacilityRectification, Incident,
+    MedicalRecord, OperationRecord, Pet, Reservation, Settlement, User, Zone,
 )
 from .security import hash_password
 
@@ -121,17 +121,20 @@ def seed_if_empty(db):
     ev = Event(code="E-SEED-0001", title="黑豹社交区咬伤豆豆事件", event_type="pet_conflict",
                status="closed", priority="high", zone_id=zobjs["social"].id,
                pet_id=heibao.id, owner_id=objs["owner2"].id,
+               location="社交区东侧围栏旁",
                description="黑豹在社交区与豆豆争抢玩具时发生撕咬，豆豆左前腿受伤。",
                created_by=objs["patrol1"].id,
                created_at=datetime.utcnow() - timedelta(days=15),
                closed_at=datetime.utcnow() - timedelta(days=13),
                closed_by=objs["manager1"].id,
-               resolution_summary="医疗处置完成，李芳赔付张伟 800 元；黑豹列入警告级黑名单并限制进入社交区、入园需佩戴嘴套；社交区隔离网完成加固整改。")
+               resolution_summary="医疗处置完成，按责任认定 80:20 结算，李芳赔付张伟 640 元；黑豹列入警告级黑名单并限制进入社交区、入园需佩戴嘴套；社交区隔离网完成加固整改。")
     db.add(ev)
     db.flush()
 
     inc = mkincident(heibao, zobjs["social"], "bite", "critical",
                      "黑豹撕咬豆豆左前腿，现场止血后送医", 15, has_injury=True, event_id=ev.id)
+    inc.related_pet_id = doudou.id
+    inc.location = "社交区东侧围栏旁"
 
     for uid, role in [(objs["patrol1"].id, "patrol"), (objs["manager1"].id, "manager"),
                       (objs["owner2"].id, "owner"), (objs["owner1"].id, "owner"),
@@ -150,11 +153,28 @@ def seed_if_empty(db):
                          patient_name="豆豆", hospital_user_id=objs["hospital1"].id,
                          injury_desc="左前腿撕裂伤，深约 1.5cm", treatment="清创缝合 4 针，注射破伤风与抗生素",
                          cost=800, treated_at=datetime.utcnow() - timedelta(days=15, hours=-5)))
+    # 冲突双方档案（含责任认定结果）
+    db.add(ConflictParty(event_id=ev.id, pet_id=heibao.id, owner_id=objs["owner2"].id,
+                         leash_compliant=False,
+                         owner_statement="黑豹当时被多只犬围观受到惊吓，平时不这样",
+                         statement_at=datetime.utcnow() - timedelta(days=15, hours=-2),
+                         responsibility_percent=80, entry_sanction="warning",
+                         determination="未佩戴嘴套且有攻击史，负主要责任"))
+    db.add(ConflictParty(event_id=ev.id, pet_id=doudou.id, owner_id=objs["owner1"].id,
+                         leash_compliant=True,
+                         owner_statement="豆豆正常玩耍，被黑豹突然扑咬",
+                         statement_at=datetime.utcnow() - timedelta(days=15, hours=-2),
+                         responsibility_percent=20, entry_sanction="none",
+                         determination="争抢玩具有一定诱因，负次要责任"))
     db.add(Compensation(event_id=ev.id, payer_owner_id=objs["owner2"].id, payee_name="张伟",
-                        amount=800, reason="豆豆医疗费用全额赔付", status="paid",
+                        amount=640, reason="事件结算：责任 80% 方补付医疗费", status="paid",
                         handled_by=objs["service1"].id,
                         created_at=datetime.utcnow() - timedelta(days=14),
                         resolved_at=datetime.utcnow() - timedelta(days=13)))
+    db.add(Settlement(event_id=ev.id, medical_total=800,
+                      detail="责任比例 黑豹 80% : 豆豆 20%；医疗费合计 800.00 元，黑豹方承担 640.00 元、豆豆方承担 160.00 元；豆豆方已付 800.00 元。结算：李芳 应向 张伟 支付 640.00 元。",
+                      created_by=objs["manager1"].id,
+                      created_at=datetime.utcnow() - timedelta(days=14)))
     db.add(BlacklistEntry(pet_id=heibao.id, owner_id=objs["owner2"].id, level="warning",
                           reason="社交区咬伤事件，警告一次", event_id=ev.id, active=True,
                           created_by=objs["manager1"].id,
@@ -171,7 +191,7 @@ def seed_if_empty(db):
                                  created_at=datetime.utcnow() - timedelta(days=14),
                                  completed_at=datetime.utcnow() - timedelta(days=13)))
     db.add(OperationRecord(record_type="event_closure", title="事件 E-SEED-0001 关闭归档",
-                           content="黑豹咬伤事件处置完毕：医疗 800 元、赔付完成、黑豹警告+限制社交区+需戴嘴套、社交区隔离网整改完成。",
+                           content="黑豹咬伤事件处置完毕：医疗 800 元、按 80:20 责任结算赔付 640 元完成、黑豹警告+限制社交区+需戴嘴套、社交区隔离网整改完成。",
                            related_event_id=ev.id, created_by=objs["manager1"].id,
                            created_at=datetime.utcnow() - timedelta(days=13)))
 

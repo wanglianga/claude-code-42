@@ -12,10 +12,23 @@
             </el-form-item>
           </el-col>
           <el-col :span="8">
+            <el-form-item label="对方宠物">
+              <el-select v-model="form.related_pet_id" filterable clearable placeholder="双方冲突时选择" style="width:100%">
+                <el-option v-for="p in pets.filter((x) => x.id !== form.pet_id)" :key="p.id"
+                           :label="`${p.name}（${p.breed}·${p.owner_name}）`" :value="p.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
             <el-form-item label="所在分区" required>
               <el-select v-model="form.zone_id" style="width:100%">
                 <el-option v-for="z in zones" :key="z.id" :label="z.name" :value="z.id" />
               </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="冲突位置">
+              <el-input v-model="form.location" placeholder="如：社交区东侧围栏旁" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -63,7 +76,10 @@
       </div>
       <el-table :data="incidents" v-loading="loading">
         <el-table-column prop="code" label="编号" width="110" />
-        <el-table-column prop="pet_name" label="宠物" width="90" />
+        <el-table-column prop="pet_name" label="宠物" width="80" />
+        <el-table-column label="对方" width="80">
+          <template #default="{ row }">{{ row.related_pet_name || '-' }}</template>
+        </el-table-column>
         <el-table-column prop="incident_type_label" label="行为" width="100" />
         <el-table-column prop="zone_name" label="分区" width="100" />
         <el-table-column label="严重度" width="90">
@@ -151,8 +167,8 @@ const eventTypes = {
 }
 
 const form = reactive({
-  pet_id: null, zone_id: null, incident_type: 'chasing', severity: 'low',
-  description: '', has_injury: false, owner_cooperative: true,
+  pet_id: null, related_pet_id: null, zone_id: null, incident_type: 'chasing', severity: 'low',
+  location: '', description: '', has_injury: false, owner_cooperative: true,
 })
 const escalateForm = reactive({ title: '', event_type: 'pet_conflict', priority: 'high', description: '' })
 
@@ -178,7 +194,7 @@ async function submit() {
   try {
     await api.post('/incidents', form)
     ElMessage.success('巡场记录已提交')
-    Object.assign(form, { pet_id: null, zone_id: null, description: '', has_injury: false, owner_cooperative: true })
+    Object.assign(form, { pet_id: null, related_pet_id: null, zone_id: null, location: '', description: '', has_injury: false, owner_cooperative: true })
     load()
   } finally {
     submitting.value = false

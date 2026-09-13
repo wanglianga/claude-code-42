@@ -58,6 +58,107 @@
         <el-col :span="14">
           <div class="page-card">
             <el-tabs>
+              <el-tab-pane v-if="detail.conflict" label="冲突责任认定">
+                <div class="muted" style="margin-bottom:10px">
+                  冲突位置：{{ detail.conflict.location || detail.event.zone_name || '-' }}
+                </div>
+                <el-row :gutter="12">
+                  <el-col :span="12" v-for="p in detail.conflict.parties" :key="p.id">
+                    <el-card shadow="never" class="party-card">
+                      <template #header>
+                        <b>{{ p.pet_name }}</b>
+                        <span class="muted">（{{ p.breed }}·{{ p.size_label }}）</span>
+                        <el-tag v-if="p.responsibility_percent !== null" type="danger" size="small" style="margin-left:6px">
+                          责任 {{ p.responsibility_percent }}%
+                        </el-tag>
+                        <el-tag v-if="p.entry_sanction && p.entry_sanction !== 'none'" type="warning" size="small" style="margin-left:4px">
+                          {{ p.entry_sanction_label }}
+                        </el-tag>
+                      </template>
+                      <el-descriptions :column="1" size="small" border>
+                        <el-descriptions-item label="主人">
+                          {{ p.owner_name }}（{{ p.owner_phone }}）
+                        </el-descriptions-item>
+                        <el-descriptions-item label="入园核验">
+                          <template v-if="p.entry_check">
+                            {{ p.entry_check.result_label }} / {{ p.entry_check.allowed_area_label }}
+                            <span class="muted">{{ p.entry_check.check_time }}</span>
+                          </template>
+                          <span v-else class="muted">无核验记录</span>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="牵引">
+                          {{ p.leash_required ? '需牵引' : '不强制' }}；冲突时{{ p.leash_compliant ? '已拴绳' : '未拴绳' }}
+                        </el-descriptions-item>
+                        <el-descriptions-item label="疫苗">{{ p.vaccine_label }}</el-descriptions-item>
+                        <el-descriptions-item label="攻击史">{{ p.attack_history ? '有' : '无' }}</el-descriptions-item>
+                        <el-descriptions-item label="主人陈述">
+                          {{ p.owner_statement || '未提交' }}
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="p.determination" label="认定说明">
+                          {{ p.determination }}
+                        </el-descriptions-item>
+                      </el-descriptions>
+                    </el-card>
+                  </el-col>
+                </el-row>
+
+                <div v-if="myParty && detail.event.status !== 'closed' && !myParty.owner_statement" style="margin-top:12px">
+                  <el-input v-model="statement" type="textarea" :rows="2" placeholder="作为当事主人，提交您的陈述（事情经过）" />
+                  <el-button size="small" type="primary" style="margin-top:6px" @click="submitStatement">提交陈述</el-button>
+                </div>
+
+                <el-divider>巡场照片({{ detail.conflict.photos.length }})</el-divider>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                  <el-image v-for="ph in detail.conflict.photos" :key="ph.id" :src="ph.url"
+                            :preview-src-list="photoUrls" fit="cover"
+                            style="width:96px;height:96px;border-radius:4px" />
+                  <span v-if="!detail.conflict.photos.length" class="muted">暂无照片</span>
+                  <el-upload v-if="canUploadPhoto && detail.event.status !== 'closed'"
+                             :http-request="uploadPhoto" :show-file-list="false" accept="image/*">
+                    <el-button size="small" :icon="Plus">上传照片</el-button>
+                  </el-upload>
+                </div>
+
+                <template v-if="isManager && detail.event.status !== 'closed'">
+                  <el-divider>责任认定（影响双方预约权限）</el-divider>
+                  <el-button size="small" :loading="suggesting" @click="loadSuggestion">获取规则建议</el-button>
+                  <el-button v-if="suggestion" size="small" type="primary" plain @click="applySuggestion">采用建议</el-button>
+                  <el-alert v-if="suggestion" type="info" :closable="false" style="margin:8px 0">
+                    <div v-for="s in suggestion.parties" :key="s.pet_id">
+                      {{ s.pet_name }}：建议 {{ s.suggested_percent }}%
+                      <span class="muted">（{{ s.reasons.join('；') || '无加减分项，均分' }}）</span>
+                    </div>
+                  </el-alert>
+                  <div v-for="dp in determineForm.parties" :key="dp.pet_id"
+                       style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+                    <span style="width:110px;font-weight:600">{{ partyName(dp.pet_id) }}</span>
+                    <el-input-number v-model="dp.responsibility_percent" :min="0" :max="100" size="small" />
+                    <el-select v-model="dp.entry_sanction" size="small" style="width:120px">
+                      <el-option label="不限制" value="none" />
+                      <el-option label="警告" value="warning" />
+                      <el-option label="限制入园" value="restricted" />
+                      <el-option label="永久拉黑" value="banned" />
+                    </el-select>
+                    <el-input v-model="dp.determination" size="small" placeholder="认定说明" style="flex:1;min-width:160px" />
+                  </div>
+                  <el-button type="danger" size="small" style="margin-top:10px" @click="submitDetermination">
+                    提交责任认定
+                  </el-button>
+                </template>
+
+                <el-divider>事件结算</el-divider>
+                <el-alert v-if="detail.conflict.settlement" type="success" :closable="false"
+                          :title="`医疗费合计 ${detail.conflict.settlement.medical_total} 元（${detail.conflict.settlement.created_at}）`"
+                          :description="detail.conflict.settlement.detail" />
+                <template v-else>
+                  <el-button v-if="isManager && detail.event.status !== 'closed' && conflictDetermined"
+                             type="primary" size="small" @click="createSettlement">
+                    按责任比例生成结算单
+                  </el-button>
+                  <span v-else class="muted">{{ conflictDetermined ? '事件关闭前由园区管理生成结算单' : '完成责任认定后可生成结算单' }}</span>
+                </template>
+              </el-tab-pane>
+
               <el-tab-pane :label="`医疗处置(${detail.medical_records.length})`">
                 <el-table :data="detail.medical_records" size="small">
                   <el-table-column prop="patient_name" label="伤者" width="90" />
@@ -220,6 +321,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import api from '../api'
 import { useAuthStore } from '../store'
@@ -241,23 +343,107 @@ const blForm = reactive({ level: 'warning', reason: '' })
 const restrForm = reactive({ restriction_type: 'muzzle_required', reason: '' })
 const rectForm = reactive({ zone_id: null, issue: '', action: '' })
 
+// 冲突责任认定
+const statement = ref('')
+const suggestion = ref(null)
+const suggesting = ref(false)
+const determineForm = reactive({ parties: [] })
+
 const isManager = computed(() => ['manager', 'admin'].includes(auth.role))
 const canMedical = computed(() => ['hospital', 'manager', 'admin'].includes(auth.role))
 const canCompensate = computed(() => ['service', 'manager', 'admin'].includes(auth.role))
+const canUploadPhoto = computed(() => ['patrol', 'manager', 'admin'].includes(auth.role))
 const ownerParticipants = computed(() =>
   (detail.value.participants || []).filter((p) => p.user?.role === 'owner'))
 
+const myParty = computed(() =>
+  (detail.value.conflict?.parties || []).find((p) => p.owner_id === auth.user?.id))
+const conflictDetermined = computed(() => {
+  const parties = detail.value.conflict?.parties || []
+  return parties.length === 2 && parties.every((p) => p.responsibility_percent !== null)
+})
+const photoUrls = computed(() => (detail.value.conflict?.photos || []).map((p) => p.url))
+
 function statusType(s) {
   return { open: 'danger', processing: 'warning', closed: 'success' }[s]
+}
+
+function partyName(petId) {
+  const p = (detail.value.conflict?.parties || []).find((x) => x.pet_id === petId)
+  return p ? p.pet_name : `#${petId}`
 }
 
 async function load() {
   loading.value = true
   try {
     detail.value = await api.get(`/events/${eventId}`)
+    // 初始化责任认定表单
+    if (detail.value.conflict) {
+      determineForm.parties = detail.value.conflict.parties.map((p) => ({
+        pet_id: p.pet_id,
+        responsibility_percent: p.responsibility_percent ?? 50,
+        entry_sanction: p.entry_sanction || 'none',
+        determination: p.determination || '',
+      }))
+    }
   } finally {
     loading.value = false
   }
+}
+
+async function submitStatement() {
+  if (!statement.value.trim()) {
+    ElMessage.warning('请填写陈述内容')
+    return
+  }
+  await api.post(`/events/${eventId}/conflict/statement`, { statement: statement.value })
+  statement.value = ''
+  ElMessage.success('陈述已提交')
+  load()
+}
+
+async function uploadPhoto(req) {
+  const fd = new FormData()
+  fd.append('file', req.file)
+  await api.post(`/events/${eventId}/conflict/photos`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  ElMessage.success('照片已上传')
+  load()
+}
+
+async function loadSuggestion() {
+  suggesting.value = true
+  try {
+    suggestion.value = await api.get(`/events/${eventId}/conflict/suggestion`)
+  } finally {
+    suggesting.value = false
+  }
+}
+
+function applySuggestion() {
+  if (!suggestion.value) return
+  for (const sp of suggestion.value.parties) {
+    const dp = determineForm.parties.find((x) => x.pet_id === sp.pet_id)
+    if (dp) dp.responsibility_percent = sp.suggested_percent
+  }
+}
+
+async function submitDetermination() {
+  const total = determineForm.parties.reduce((s, p) => s + p.responsibility_percent, 0)
+  if (total !== 100) {
+    ElMessage.warning(`双方责任比例合计必须为 100（当前 ${total}）`)
+    return
+  }
+  await api.post(`/events/${eventId}/conflict/determine`, { parties: determineForm.parties })
+  ElMessage.success('责任认定已提交，黑名单/预约权限同步生效')
+  load()
+}
+
+async function createSettlement() {
+  await api.post(`/events/${eventId}/settlement`)
+  ElMessage.success('结算单已生成并登记赔付')
+  load()
 }
 
 async function postUpdate() {

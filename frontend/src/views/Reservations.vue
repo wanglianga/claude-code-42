@@ -64,6 +64,17 @@
         <el-table-column prop="pet_name" label="宠物" width="90" />
         <el-table-column prop="pet_breed" label="品种" width="110" />
         <el-table-column v-if="!isOwner" prop="owner_name" label="主人" width="90" />
+        <el-table-column v-if="!isOwner" prop="owner_phone" label="联系电话" width="120" />
+        <el-table-column label="疫苗" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.vaccine_status === 'valid' ? 'success' : 'danger'" size="small">
+              {{ row.vaccine_label }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="牵引" width="80">
+          <template #default="{ row }">{{ row.leash_required ? '需牵引' : '不强制' }}</template>
+        </el-table-column>
         <el-table-column prop="zone_name" label="分区" width="100" />
         <el-table-column prop="visit_date" label="日期" width="110" />
         <el-table-column prop="time_slot_label" label="时段" width="140" />
