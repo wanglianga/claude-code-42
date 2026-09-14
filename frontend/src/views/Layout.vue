@@ -43,6 +43,7 @@ const menus = [
   { path: '/entry-check', title: '入园核验', icon: 'Checked', roles: ['gate', 'manager', 'admin'] },
   { path: '/incidents', title: '巡场上报', icon: 'Warning', roles: ['patrol', 'manager', 'admin'] },
   { path: '/events', title: '事件协同', icon: 'ChatDotRound' },
+  { path: '/activities', title: '活动与检录', icon: 'Trophy', roles: ['owner', 'coach', 'manager', 'admin'] },
   { path: '/blacklist', title: '黑名单与限制', icon: 'CircleClose' },
   { path: '/analytics', title: '复盘分析', icon: 'DataAnalysis', roles: ['manager', 'admin'] },
   { path: '/zones', title: '分区管理', icon: 'Grid', roles: ['manager', 'admin'] },

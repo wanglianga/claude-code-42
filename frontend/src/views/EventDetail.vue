@@ -300,6 +300,59 @@
                 </el-table>
                 <el-empty v-if="!detail.incidents.length" description="暂无" :image-size="50" />
               </el-tab-pane>
+
+              <el-tab-pane :label="`证据与责任(${(detail.evidence || []).length})`">
+                <el-table :data="detail.evidence || []" size="small">
+                  <el-table-column label="类型" width="110">
+                    <template #default="{ row }">
+                      <el-tag size="small" effect="plain">{{ row.type_label }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="title" label="标题" min-width="130" show-overflow-tooltip />
+                  <el-table-column prop="content" label="说明" min-width="160" show-overflow-tooltip />
+                  <el-table-column label="附件" width="80">
+                    <template #default="{ row }">
+                      <el-link v-if="row.url" type="primary" :href="row.url" target="_blank">查看</el-link>
+                      <span v-else>-</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="creator" label="留存人" width="110" />
+                  <el-table-column prop="created_at" label="时间" width="140" />
+                </el-table>
+                <el-empty v-if="!(detail.evidence || []).length" description="暂无证据" :image-size="50" />
+
+                <template v-if="canEvidence && detail.event.status !== 'closed'">
+                  <el-divider>留存证据（监控片段 / 医疗凭证 / 责任划分）</el-divider>
+                  <el-form inline>
+                    <el-form-item>
+                      <el-select v-model="evidenceForm.evidence_type" style="width:130px">
+                        <el-option label="监控片段" value="surveillance" />
+                        <el-option label="医疗凭证" value="medical_certificate" />
+                        <el-option label="责任划分文件" value="liability" />
+                        <el-option label="其他" value="other" />
+                      </el-select>
+                    </el-form-item>
+                    <el-form-item><el-input v-model="evidenceForm.title" placeholder="标题" style="width:150px" /></el-form-item>
+                    <el-form-item><el-input v-model="evidenceForm.content" placeholder="说明（如 CAM-03 14:20-14:35）" style="width:220px" /></el-form-item>
+                    <el-form-item>
+                      <input type="file" ref="evidenceFileInput" style="width:180px" />
+                    </el-form-item>
+                    <el-button type="primary" size="small" @click="addEvidence">留存</el-button>
+                  </el-form>
+                </template>
+
+                <el-divider>园区责任划分</el-divider>
+                <template v-if="detail.event.park_liability_percent !== null && detail.event.park_liability_percent !== undefined">
+                  <el-alert type="warning" :closable="false"
+                            :title="`园区承担责任 ${detail.event.park_liability_percent}%：${detail.event.park_liability_note || '无说明'}`" />
+                </template>
+                <span v-else class="muted">尚未划分园区责任</span>
+                <div v-if="isManager && detail.event.status !== 'closed'" style="margin-top:10px;display:flex;gap:8px;align-items:center">
+                  <el-input-number v-model="parkLiability.percent" :min="0" :max="100" size="small" />
+                  <el-input v-model="parkLiability.note" size="small" placeholder="责任说明（如围栏缺口由园区负责）" style="width:280px" />
+                  <el-button size="small" type="warning" @click="saveParkLiability">保存划分</el-button>
+                </div>
+              </el-tab-pane>
             </el-tabs>
           </div>
         </el-col>
@@ -349,10 +402,16 @@ const suggestion = ref(null)
 const suggesting = ref(false)
 const determineForm = reactive({ parties: [] })
 
+// 证据与园区责任
+const evidenceForm = reactive({ evidence_type: 'surveillance', title: '', content: '' })
+const evidenceFileInput = ref(null)
+const parkLiability = reactive({ percent: 0, note: '' })
+
 const isManager = computed(() => ['manager', 'admin'].includes(auth.role))
 const canMedical = computed(() => ['hospital', 'manager', 'admin'].includes(auth.role))
 const canCompensate = computed(() => ['service', 'manager', 'admin'].includes(auth.role))
 const canUploadPhoto = computed(() => ['patrol', 'manager', 'admin'].includes(auth.role))
+const canEvidence = computed(() => ['patrol', 'manager', 'admin', 'hospital'].includes(auth.role))
 const ownerParticipants = computed(() =>
   (detail.value.participants || []).filter((p) => p.user?.role === 'owner'))
 
@@ -443,6 +502,34 @@ async function submitDetermination() {
 async function createSettlement() {
   await api.post(`/events/${eventId}/settlement`)
   ElMessage.success('结算单已生成并登记赔付')
+  load()
+}
+
+async function addEvidence() {
+  if (!evidenceForm.title) {
+    ElMessage.warning('请填写证据标题')
+    return
+  }
+  const fd = new FormData()
+  fd.append('evidence_type', evidenceForm.evidence_type)
+  fd.append('title', evidenceForm.title)
+  fd.append('content', evidenceForm.content)
+  const file = evidenceFileInput.value?.files?.[0]
+  if (file) fd.append('file', file)
+  await api.post(`/events/${eventId}/evidence`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  Object.assign(evidenceForm, { evidence_type: 'surveillance', title: '', content: '' })
+  if (evidenceFileInput.value) evidenceFileInput.value.value = ''
+  ElMessage.success('证据已留存')
+  load()
+}
+
+async function saveParkLiability() {
+  await api.put(`/events/${eventId}/park-liability`, {
+    percent: parkLiability.percent, note: parkLiability.note,
+  })
+  ElMessage.success('园区责任划分已保存')
   load()
 }
 

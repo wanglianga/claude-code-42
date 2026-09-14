@@ -28,6 +28,16 @@ COMPENSATION_STATUS = {"pending": "待赔付", "paid": "已赔付", "rejected": 
 RECTIFICATION_STATUS = {"pending": "待整改", "in_progress": "整改中", "done": "已完成"}
 ALLOWED_AREA = {"free_activity": "自由活动区", "leash_only": "仅限牵引区", "denied": "禁止入园"}
 SANCTION_LABELS = {"none": "不限制", "warning": "警告", "restricted": "限制入园", "banned": "永久拉黑"}
+ACTIVITY_TYPES = {"frisbee": "飞盘", "training_course": "训练课", "social_event": "社交活动"}
+INTENSITY_LABELS = {"low": "低强度", "medium": "中强度", "high": "高强度"}
+REG_STATUS_LABELS = {
+    "registered": "已报名", "waitlisted": "候补中", "admitted": "已入场",
+    "rejected": "已拒绝", "cancelled": "已取消",
+}
+EVIDENCE_TYPES = {
+    "surveillance": "监控片段", "medical_certificate": "医疗凭证",
+    "liability": "责任划分文件", "other": "其他",
+}
 RECORD_TYPES = {
     "event_closure": "事件关闭", "blacklist": "黑名单", "restriction": "活动资格",
     "rectification": "设施整改", "zone_change": "分区调整", "review_decision": "复盘决策",
@@ -153,6 +163,8 @@ def event_dict(e, db=None):
         "owner_id": e.owner_id,
         "location": e.location,
         "description": e.description,
+        "park_liability_percent": e.park_liability_percent,
+        "park_liability_note": e.park_liability_note,
         "created_at": e.created_at.strftime("%Y-%m-%d %H:%M") if e.created_at else "",
         "closed_at": e.closed_at.strftime("%Y-%m-%d %H:%M") if e.closed_at else None,
         "resolution_summary": e.resolution_summary,

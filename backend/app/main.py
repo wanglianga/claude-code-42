@@ -8,8 +8,8 @@ from sqlalchemy import text
 
 from .config import UPLOAD_DIR
 from .database import Base, SessionLocal, engine
-from .routers import (analytics, auth, blacklist, entry_checks, events,
-                      incidents, pets, reservations, users, zones)
+from .routers import (activities, analytics, auth, blacklist, entry_checks,
+                      events, incidents, pets, reservations, users, zones)
 from .seed import seed_if_empty
 
 app = FastAPI(title="城市宠物公园入园预约与冲突处置平台", version="1.0.0")
@@ -64,3 +64,4 @@ app.include_router(incidents.router, prefix="/api")
 app.include_router(events.router, prefix="/api")
 app.include_router(blacklist.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
+app.include_router(activities.router, prefix="/api")

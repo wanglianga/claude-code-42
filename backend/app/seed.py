@@ -2,9 +2,10 @@
 from datetime import date, datetime, timedelta
 
 from .models import (
-    ActivityRestriction, BlacklistEntry, Compensation, ConflictParty, Event,
-    EventParticipant, EventUpdate, FacilityRectification, Incident,
-    MedicalRecord, OperationRecord, Pet, Reservation, Settlement, User, Zone,
+    Activity, ActivityRegistration, ActivityRestriction, BlacklistEntry,
+    Compensation, ConflictParty, Event, EventParticipant, EventUpdate,
+    FacilityRectification, Incident, MedicalRecord, OperationRecord, Pet,
+    Reservation, Settlement, User, Zone,
 )
 from .security import hash_password
 
@@ -33,6 +34,7 @@ def seed_if_empty(db):
         ("manager1", "manager123", "manager", "陈静", "13800000006"),
         ("hospital1", "hospital123", "hospital", "刘医生(宠安医院)", "13800000007"),
         ("service1", "service123", "service", "周婷", "13800000008"),
+        ("coach1", "coach123", "coach", "刘教练", "13800000009"),
     ]
     objs = {}
     for username, pwd, role, name, phone in users:
@@ -194,6 +196,28 @@ def seed_if_empty(db):
                            content="黑豹咬伤事件处置完毕：医疗 800 元、按 80:20 责任结算赔付 640 元完成、黑豹警告+限制社交区+需戴嘴套、社交区隔离网整改完成。",
                            related_event_id=ev.id, created_by=objs["manager1"].id,
                            created_at=datetime.utcnow() - timedelta(days=13)))
+
+    # ---------- 活动（飞盘/训练课）与报名 ----------
+    frisbee = Activity(title="周末飞盘友谊赛", activity_type="frisbee",
+                       activity_date=today, time_slot="evening", intensity="high",
+                       allowed_sizes="medium,large", capacity=4, coach_count=2,
+                       pets_per_coach=3, coach_names="刘教练,王助教",
+                       insurance_policy_no="INS-2026-0901",
+                       created_by=objs["manager1"].id)
+    training = Activity(title="服从训练基础课", activity_type="training_course",
+                        activity_date=today + timedelta(days=1), time_slot="morning",
+                        intensity="medium", allowed_sizes="small,medium,large",
+                        capacity=10, coach_count=1, pets_per_coach=10,
+                        coach_names="刘教练", insurance_policy_no="INS-2026-0902",
+                        created_by=objs["manager1"].id)
+    db.add_all([frisbee, training])
+    db.flush()
+
+    # 飞盘赛报名（高强度不接受攻击史宠物，黑豹不可报；有效容量 min(4, 2*3)=4）
+    db.add(ActivityRegistration(activity_id=frisbee.id, pet_id=dahuang.id,
+                                owner_id=dahuang.owner_id, status="registered"))
+    db.add(ActivityRegistration(activity_id=training.id, pet_id=doudou.id,
+                                owner_id=doudou.owner_id, status="registered"))
 
     db.commit()
     print("[seed] 演示数据初始化完成")

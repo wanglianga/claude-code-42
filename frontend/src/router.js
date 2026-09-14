@@ -15,6 +15,7 @@ const routes = [
       { path: 'incidents', component: () => import('./views/Incidents.vue'), meta: { title: '巡场上报', roles: ['patrol', 'manager', 'admin'] } },
       { path: 'events', component: () => import('./views/Events.vue'), meta: { title: '事件协同' } },
       { path: 'events/:id', component: () => import('./views/EventDetail.vue'), meta: { title: '事件详情' } },
+      { path: 'activities', component: () => import('./views/Activities.vue'), meta: { title: '活动与检录', roles: ['owner', 'coach', 'manager', 'admin'] } },
       { path: 'blacklist', component: () => import('./views/Blacklist.vue'), meta: { title: '黑名单与限制' } },
       { path: 'analytics', component: () => import('./views/Analytics.vue'), meta: { title: '复盘分析', roles: ['manager', 'admin'] } },
       { path: 'zones', component: () => import('./views/Zones.vue'), meta: { title: '分区管理', roles: ['manager', 'admin'] } },

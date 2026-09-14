@@ -50,6 +50,7 @@ const accounts = [
   { u: 'manager1', p: 'manager123', label: '园区管理' },
   { u: 'hospital1', p: 'hospital123', label: '合作医院' },
   { u: 'service1', p: 'service123', label: '客服' },
+  { u: 'coach1', p: 'coach123', label: '教练' },
   { u: 'admin', p: 'admin123', label: '管理员' },
 ]
 

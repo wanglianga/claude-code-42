@@ -23,5 +23,6 @@ ROLES = {
     "manager": "园区管理",
     "hospital": "合作医院",
     "service": "客服",
+    "coach": "教练",
     "admin": "系统管理员",
 }

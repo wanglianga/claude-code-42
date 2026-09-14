@@ -104,6 +104,8 @@ class Event(Base):
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     location = Column(String(255), default="")  # 冲突位置
     description = Column(Text, default="")
+    park_liability_percent = Column(Integer, nullable=True)  # 园区责任划分比例
+    park_liability_note = Column(Text, default="")  # 园区责任说明
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     closed_at = Column(DateTime, nullable=True)
@@ -279,6 +281,62 @@ class Settlement(Base):
     compensation_id = Column(Integer, ForeignKey("compensations.id"), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Activity(Base):
+    """园区活动（飞盘/训练课）：按体型、强度、教练数量与场地容量限制报名。"""
+    __tablename__ = "activities"
+    id = Column(Integer, primary_key=True)
+    title = Column(String(128), nullable=False)
+    activity_type = Column(String(32), nullable=False)  # frisbee/training_course
+    activity_date = Column(Date, nullable=False)
+    time_slot = Column(String(16), nullable=False)
+    intensity = Column(String(16), default="medium")  # low/medium/high
+    allowed_sizes = Column(String(64), default="small,medium,large")
+    capacity = Column(Integer, nullable=False)  # 场地容量
+    coach_count = Column(Integer, default=1)  # 教练数量
+    pets_per_coach = Column(Integer, default=8)  # 每名教练可带宠物数
+    coach_names = Column(String(255), default="")  # 教练名单（逗号分隔）
+    insurance_policy_no = Column(String(64), default="")  # 活动保险单号
+    insured_count = Column(Integer, default=0)  # 已入场投保数
+    insured_pets = Column(Text, default="")  # 投保宠物名单
+    coach_assignments = Column(Text, default="")  # 教练-宠物分组 JSON
+    status = Column(String(16), default="open")  # open/closed
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ActivityRegistration(Base):
+    """活动报名/候补/检录。"""
+    __tablename__ = "activity_registrations"
+    id = Column(Integer, primary_key=True)
+    activity_id = Column(Integer, ForeignKey("activities.id"), nullable=False)
+    pet_id = Column(Integer, ForeignKey("pets.id"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # registered/waitlisted/admitted/rejected/cancelled
+    status = Column(String(16), nullable=False, default="registered")
+    queue_position = Column(Integer, nullable=True)  # 候补排队位置
+    reject_reason = Column(String(255), default="")
+    decided_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    decided_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    activity = relationship("Activity")
+    pet = relationship("Pet")
+    owner = relationship("User", foreign_keys=[owner_id])
+
+
+class EventEvidence(Base):
+    """事件证据留存：监控片段、医疗凭证、责任划分文件等。"""
+    __tablename__ = "event_evidence"
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
+    evidence_type = Column(String(32), nullable=False)  # surveillance/medical_certificate/liability/other
+    title = Column(String(128), nullable=False)
+    content = Column(Text, default="")  # 文字说明（如监控点位+时间段）
+    filename = Column(String(255), nullable=True)  # 附件
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    creator = relationship("User")
 
 
 class OperationRecord(Base):

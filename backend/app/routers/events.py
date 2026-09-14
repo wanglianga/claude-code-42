@@ -2,7 +2,7 @@ import os
 import uuid
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -11,13 +11,14 @@ from ..database import get_db
 from ..deps import get_current_user, require_roles
 from ..models import (ActivityRestriction, BlacklistEntry, Compensation,
                       ConflictParty, ConflictPhoto, EntryCheck, Event,
-                      EventParticipant, EventUpdate, FacilityRectification,
-                      Incident, MedicalRecord, OperationRecord, Pet,
-                      Reservation, Settlement, User)
-from ..serializers import (COMPENSATION_STATUS, RECTIFICATION_STATUS,
-                           SANCTION_LABELS, SIZE_LABELS, VACCINE_LABELS,
-                           blacklist_dict, entry_check_dict, event_dict,
-                           incident_dict, restriction_dict, user_dict)
+                      EventEvidence, EventParticipant, EventUpdate,
+                      FacilityRectification, Incident, MedicalRecord,
+                      OperationRecord, Pet, Reservation, Settlement, User)
+from ..serializers import (COMPENSATION_STATUS, EVIDENCE_TYPES,
+                           RECTIFICATION_STATUS, SANCTION_LABELS, SIZE_LABELS,
+                           VACCINE_LABELS, blacklist_dict, entry_check_dict,
+                           event_dict, incident_dict, restriction_dict,
+                           user_dict)
 
 router = APIRouter(prefix="/events", tags=["事件协同"])
 
@@ -203,10 +204,19 @@ def event_detail(event_id: int, db: Session = Depends(get_db),
     restr = db.query(ActivityRestriction).filter(ActivityRestriction.event_id == event_id).all()
     rects = db.query(FacilityRectification).filter(FacilityRectification.event_id == event_id).all()
     incidents = db.query(Incident).filter(Incident.event_id == event_id).all()
+    evidence = db.query(EventEvidence).filter(EventEvidence.event_id == event_id).order_by(EventEvidence.created_at).all()
 
     return {
         "event": event_dict(ev, db),
         "conflict": conflict_dict(db, ev),
+        "evidence": [{
+            "id": e.id, "evidence_type": e.evidence_type,
+            "type_label": EVIDENCE_TYPES.get(e.evidence_type, e.evidence_type),
+            "title": e.title, "content": e.content,
+            "url": f"/api/uploads/{e.filename}" if e.filename else None,
+            "creator": e.creator.name if e.creator else "",
+            "created_at": e.created_at.strftime("%Y-%m-%d %H:%M") if e.created_at else "",
+        } for e in evidence],
         "participants": [{
             "id": p.id, "participant_role": p.participant_role,
             "user": user_dict(p.user),
@@ -727,6 +737,66 @@ def create_settlement(event_id: int, db: Session = Depends(get_db),
     return {"ok": True, "id": st.id, "detail": detail}
 
 
+# ---------------- 证据留存与园区责任划分 ----------------
+
+def _save_upload(prefix: str, file: UploadFile, content: bytes) -> str:
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    ext = os.path.splitext(file.filename or "")[1].lower() or ".bin"
+    fname = f"{prefix}_{uuid.uuid4().hex[:10]}{ext}"
+    with open(os.path.join(UPLOAD_DIR, fname), "wb") as f:
+        f.write(content)
+    return fname
+
+
+@router.post("/{event_id}/evidence")
+async def add_evidence(event_id: int,
+                       evidence_type: str = Form(...), title: str = Form(...),
+                       content: str = Form(""), file: UploadFile | None = File(None),
+                       db: Session = Depends(get_db),
+                       user: User = Depends(require_roles("patrol", "manager", "admin", "hospital"))):
+    """留存监控片段、医疗凭证、责任划分文件等证据（关闭后只读）。"""
+    ev = get_event_or_404(db, event_id)
+    if ev.status == "closed":
+        raise HTTPException(400, "事件已关闭，无法再补充证据")
+    if evidence_type not in EVIDENCE_TYPES:
+        raise HTTPException(400, "证据类型不合法")
+    fname = None
+    if file and file.filename:
+        data = await file.read()
+        if len(data) > 20 * 1024 * 1024:
+            raise HTTPException(400, "附件不能超过 20MB")
+        fname = _save_upload(f"evd{event_id}", file, data)
+    rec = EventEvidence(event_id=event_id, evidence_type=evidence_type, title=title,
+                        content=content, filename=fname, created_by=user.id)
+    db.add(rec)
+    add_update(db, event_id, user.id, "证据留存",
+               f"[{EVIDENCE_TYPES[evidence_type]}] {title}")
+    db.commit()
+    return {"ok": True, "id": rec.id}
+
+
+class ParkLiabilityIn(BaseModel):
+    percent: int
+    note: str = ""
+
+
+@router.put("/{event_id}/park-liability")
+def set_park_liability(event_id: int, data: ParkLiabilityIn, db: Session = Depends(get_db),
+                       user: User = Depends(require_roles("manager", "admin"))):
+    """园区责任划分（园区在事件中的责任比例与说明）。"""
+    ev = get_event_or_404(db, event_id)
+    if ev.status == "closed":
+        raise HTTPException(400, "事件已关闭，园区责任划分不可再变更")
+    if not (0 <= data.percent <= 100):
+        raise HTTPException(400, "比例须在 0-100 之间")
+    ev.park_liability_percent = data.percent
+    ev.park_liability_note = data.note
+    add_update(db, event_id, user.id, "园区责任划分",
+               f"园区承担责任 {data.percent}%：{data.note}")
+    db.commit()
+    return {"ok": True}
+
+
 # ---------------- 关闭事件 ----------------
 
 class CloseIn(BaseModel):
@@ -766,6 +836,11 @@ def close_event(event_id: int, data: CloseIn, db: Session = Depends(get_db),
     settlement = db.query(Settlement).filter(Settlement.event_id == event_id).first()
     if settlement:
         parts.append(f"事件结算：{settlement.detail}")
+    evidence_count = db.query(EventEvidence).filter(EventEvidence.event_id == event_id).count()
+    if evidence_count:
+        parts.append(f"证据留存 {evidence_count} 件（监控片段/医疗凭证/责任划分）")
+    if ev.park_liability_percent is not None:
+        parts.append(f"园区责任 {ev.park_liability_percent}%：{ev.park_liability_note}")
     parts.append(f"处置结论：{data.resolution_summary}")
     db.add(OperationRecord(record_type="event_closure", title=f"事件 {ev.code} 关闭归档",
                            content="；".join(parts), related_event_id=event_id,
